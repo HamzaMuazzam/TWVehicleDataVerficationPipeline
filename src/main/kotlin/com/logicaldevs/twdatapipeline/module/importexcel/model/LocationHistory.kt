@@ -1,11 +1,9 @@
 package com.logicaldevs.twdatapipeline.module.importexcel.model
 
 import jakarta.persistence.Entity
-import jakarta.persistence.FetchType
 import jakarta.persistence.GeneratedValue
 import jakarta.persistence.GenerationType
 import jakarta.persistence.Id
-import jakarta.persistence.ManyToOne
 import jakarta.persistence.Table
 import java.time.LocalDateTime
 
@@ -15,28 +13,26 @@ data class LocationHistory(
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
-    val id: Long,
+    var id: Long?=null,
 
-    val lat: Double? = null,
+    var lat: Double? = null,
 
-    val lng: Double? = null,
+    var lng: Double? = null,
 
-    val rdt: LocalDateTime? = null,
+    var rdt: LocalDateTime? = null,
 
-    val landMark: String? = null,
+    var landMark: String? = null,
 
-    val speed: Double? = null,
+    var speed: Double? = null,
 
-    val direction: Double? = null,
+    var direction: Double? = null,
 
-    val distance: Double? = null,
+    var distance: Double? = null,
 
-    val travelTime: String? = null,
+    var travelTime: String? = null,
 
-    val stopTime: String? = null,
+    var stopTime: String? = null,
 
-    // Many locations belong to one vehicle group
-    @ManyToOne(fetch = FetchType.LAZY)
-    val vehicleGroup: VehicleGroup? = null
+    var groupName: String? = null,
 
-)
+    )
