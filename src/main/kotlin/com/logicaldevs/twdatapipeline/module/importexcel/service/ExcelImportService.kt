@@ -18,6 +18,7 @@ import org.springframework.beans.factory.annotation.Autowired
 import java.io.FileInputStream
 import java.time.LocalDateTime
 import java.time.format.DateTimeFormatter
+import java.util.Collections
 import java.util.Locale
 import kotlin.io.path.deleteIfExists
 
@@ -27,7 +28,7 @@ class ExcelImportService @Autowired constructor(
 ) {
 
 
-    suspend fun processExcels(excelFolder: String): List<String> = coroutineScope {
+    suspend fun processExcels(excelFolder: String, batchSize: Int = 50): Int = coroutineScope {
         val start = System.currentTimeMillis()
         val excelDir = Paths.get(excelFolder)
         val excelFiles = Files.walk(excelDir)
@@ -39,83 +40,98 @@ class ExcelImportService @Autowired constructor(
         val maxThreads = Runtime.getRuntime().availableProcessors().coerceAtLeast(4)
         val dispatcher = newFixedThreadPoolContext(maxThreads, "ExcelPool")
 
+        var totalProcessed = 0
+
         try {
-            val locationHistories = mutableListOf<LocationHistory>()
-            val results = excelFiles.chunked(1000).flatMap { chunk ->
-                withContext(dispatcher) {
-                    chunk.map { path ->
-                        async {
-                            processExcelData(path,locationHistories)
+            // Sequentially process batches of files
+            excelFiles.chunked(batchSize).forEachIndexed { batchIndex, batch ->
+                println("\n🟢 Starting batch ${batchIndex + 1} with ${batch.size} files...")
+
+                val locationHistories = Collections.synchronizedList(mutableListOf<LocationHistory>())
+
+                // Process each file in parallel within this batch
+                val processedFiles = batch.map { path ->
+                    async(dispatcher) {
+                        try {
+                            processExcelData(path, locationHistories)
+                            path // return the path of successfully processed file
+                        } catch (e: Exception) {
+                            println("⚠ Skipping file ${path.fileName} due to error: ${e.message}")
+                            null
                         }
-                    }.awaitAll()
+                    }
+                }.awaitAll().filterNotNull()
+
+                // Save all valid data to DB
+                if (locationHistories.isNotEmpty()) {
+                    try {
+                        locationHistoryRepo.saveAll(locationHistories)
+                        println("💾 Saved ${locationHistories.size} records from batch ${batchIndex + 1}")
+                    } catch (e: Exception) {
+                        println("❌ DB error in batch ${batchIndex + 1}: ${e.message}")
+                        e.printStackTrace()
+                    }
                 }
+
+                // Delete successfully processed files
+                processedFiles.forEach { file ->
+                    try {
+                        Files.deleteIfExists(file)
+                    } catch (e: Exception) {
+                        println("⚠ Failed to delete ${file.fileName}: ${e.message}")
+                    }
+                }
+
+                println("🗑️ Deleted ${processedFiles.size} files in batch ${batchIndex + 1}")
+                totalProcessed += processedFiles.size
             }
+
             val totalTime = (System.currentTimeMillis() - start) / 1000.0
-            println("✅ Processed ${excelFiles.size} Excel files in ${"%.2f".format(totalTime)} sec using $maxThreads threads")
-            locationHistoryRepo.saveAll(locationHistories)
-            excelFiles.forEach {file->
-                file.deleteIfExists()
-            }
-            results
+            println("✅ Processed $totalProcessed Excel files in ${"%.2f".format(totalTime)} sec using $maxThreads threads")
+
+            return@coroutineScope totalProcessed
         } finally {
             dispatcher.close()
         }
     }
 
     fun processExcelData(path: Path, locationHistories: MutableList<LocationHistory>): String {
-        if(path.fileName.toString().contains("~$")) return "Not processed Hidden ${path.fileName}"
+        if (path.fileName.toString().contains("~$")) return "Skipped hidden file: ${path.fileName}"
+
         FileInputStream(path.toFile()).use { fis ->
             val workbook = WorkbookFactory.create(fis)
             val sheet = workbook.getSheetAt(0)
-            val noOfRows = sheet.rowIterator().asSequence().toMutableList()
-            noOfRows.forEachIndexed { rowIndex, singleRow ->
-                if(rowIndex != 0) {
+            val rows = sheet.rowIterator().asSequence().toList()
+
+            rows.drop(1).forEach { row ->
+                try {
                     val locationHistory = LocationHistory()
-                    singleRow.forEachIndexed { columnIndex, value ->
-                        try{
-                            val cell = value.row.getCell(columnIndex)?.toString().orEmpty()
-                            if(columnIndex==0){
-                                locationHistory.groupName = cell
-                            }
-                            else if(columnIndex==1) {
+                    row.forEachIndexed { columnIndex, cell ->
+                        val value = cell.toString()
+                        when (columnIndex) {
+                            0 -> locationHistory.groupName = value
+                            1 -> {
                                 val formatter = DateTimeFormatter.ofPattern("dd/MM/yyyy hh:mm:ss a", Locale.ENGLISH)
-                                val rdt: LocalDateTime = LocalDateTime.parse(cell, formatter)
-                                locationHistory.rdt = rdt
+                                locationHistory.rdt = LocalDateTime.parse(value, formatter)
                             }
-                            else if(columnIndex==2) {
-                                locationHistory.landMark = cell
-                            }
-                            else if(columnIndex==3) {
-                                locationHistory.speed = cell.toDoubleOrNull()
-                            }
-                            else if(columnIndex==4) {
-                                locationHistory.direction = cell.toDoubleOrNull()
-                            }
-                            else if(columnIndex==5) {
-                                locationHistory.distance = cell.toDoubleOrNull()
-                            }
-                            else if(columnIndex==6) {
-                                locationHistory.travelTime = cell
-                            }
-                            else if(columnIndex==7) {
-                                locationHistory.stopTime = cell
-                            }
-                            else if(columnIndex==8) {
-                                locationHistory.lat = cell.toDoubleOrNull()
-                            }
-                            else if(columnIndex==9) {
-                                locationHistory.lng = cell.toDoubleOrNull()
-                            }
-                        }catch (e:Exception){
-                            e.printStackTrace()
+                            2 -> locationHistory.landMark = value
+                            3 -> locationHistory.speed = value.toDoubleOrNull()
+                            4 -> locationHistory.direction = value.toDoubleOrNull()
+                            5 -> locationHistory.distance = value.toDoubleOrNull()
+                            6 -> locationHistory.travelTime = value
+                            7 -> locationHistory.stopTime = value
+                            8 -> locationHistory.lat = value.toDoubleOrNull()
+                            9 -> locationHistory.lng = value.toDoubleOrNull()
                         }
                     }
                     locationHistories.add(locationHistory)
+                } catch (e: Exception) {
+                    println("⚠ Skipping row ${row.rowNum} in file ${path.fileName} due to error: ${e.message}")
                 }
             }
 
             workbook.close()
-            return "File: ${path.fileName}"
+            return "Processed file: ${path.fileName}"
         }
     }
 

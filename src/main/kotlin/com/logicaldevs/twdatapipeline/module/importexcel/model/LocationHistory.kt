@@ -1,5 +1,6 @@
 package com.logicaldevs.twdatapipeline.module.importexcel.model
 
+import jakarta.persistence.Column
 import jakarta.persistence.Entity
 import jakarta.persistence.GeneratedValue
 import jakarta.persistence.GenerationType
@@ -21,6 +22,7 @@ data class LocationHistory(
 
     var rdt: LocalDateTime? = null,
 
+    @Column(length = 1000)
     var landMark: String? = null,
 
     var speed: Double? = null,

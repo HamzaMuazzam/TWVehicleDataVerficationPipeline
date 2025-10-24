@@ -10,5 +10,5 @@ data class ProcessExcelRequest(
     data class ProcessExcelResponse(
         val success: Boolean,
         val message: String,
-        val results: List<String>? = null
+        val results: Int? = null
     )
