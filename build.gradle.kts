@@ -1,3 +1,5 @@
+import org.springframework.boot.gradle.tasks.run.BootRun
+
 plugins {
     kotlin("jvm") version "1.9.25"
     kotlin("plugin.spring") version "1.9.25"
@@ -74,3 +76,7 @@ kotlin {
 tasks.withType<Test> {
     useJUnitPlatform()
 }
+tasks.withType<BootRun> {
+    jvmArgs = listOf("-Xmx36G", "-Xms20G")
+}
+

@@ -1,11 +1,9 @@
 package com.logicaldevs.twdatapipeline.module.importexcel.service
 
 import com.logicaldevs.twdatapipeline.module.importexcel.model.LocationHistory
-import com.logicaldevs.twdatapipeline.module.importexcel.repo.LocationHistoryRepo
+
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
-import kotlinx.coroutines.newFixedThreadPoolContext
-import kotlinx.coroutines.withContext
 import org.springframework.stereotype.Service
 import java.nio.file.Files
 import java.nio.file.Paths
@@ -13,15 +11,12 @@ import java.nio.file.Paths
 import kotlinx.coroutines.*
 import java.nio.file.*
 import kotlin.io.path.extension
-import org.apache.poi.ss.usermodel.WorkbookFactory
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.jdbc.core.JdbcTemplate
 import java.io.FileInputStream
 import java.time.LocalDateTime
 import java.time.format.DateTimeFormatter
-import java.util.Collections
 import java.util.Locale
-import kotlin.io.path.deleteIfExists
 
 @Service
 
