@@ -19,6 +19,9 @@ data class LocationHistory(
     var lat: Double? = null,
 
     var lng: Double? = null,
+    var page: Int? = null,
+    var row: Int? = null,
+    var fileName: String? = null,
 
     var rdt: LocalDateTime? = null,
 

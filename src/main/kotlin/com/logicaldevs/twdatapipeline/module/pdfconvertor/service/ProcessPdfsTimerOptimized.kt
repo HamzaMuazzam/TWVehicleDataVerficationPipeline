@@ -56,7 +56,7 @@ object ProcessPdfsStructuredCleanKotlin {
                 val headerRow = sheet.createRow(0)
                 val headers = arrayOf(
                     "Group Name", "RDT", "LandMark", "Speed", "Direction", "Distance",
-                    "Travel Time", "Stop Time", "LAT", "LON"/*, "PDF File", "Page", "Row"*/
+                    "Travel Time", "Stop Time", "LAT", "LON", "PDF File", "Page", "Row"
                 )
                 val headerFont = workbook.createFont().apply {
                     bold = true
@@ -158,7 +158,7 @@ object ProcessPdfsStructuredCleanKotlin {
 
                         val record = arrayOf(
                             pdfFileName.split(" ")[0], rdt, landmark, speed, direction, distance,
-                            travel, stop, lat, lon
+                            travel, stop, lat, lon, pdfFileName, page.toString(), rowCounter.toString()
                         )
 
                         val row = sheet.createRow(rowCounter++)
