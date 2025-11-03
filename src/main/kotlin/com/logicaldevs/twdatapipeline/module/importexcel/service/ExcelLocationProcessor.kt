@@ -30,7 +30,7 @@ class ExcelLocationProcessor(
     private val locationHistoryService: LocationHistoryService
 ) {
 
-    private val haversineRadiusMeters = 200.0
+    private val haversineRadiusMeters = 500.0
 
     fun processExcel(inputFile: File, outputFile: File) {
         val workbook = XSSFWorkbook(FileInputStream(inputFile))
